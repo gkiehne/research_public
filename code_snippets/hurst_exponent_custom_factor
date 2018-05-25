@@ -1,0 +1,26 @@
+class HurstExp(CustomFactor):  
+    inputs = [USEquityPricing.open]  
+    window_length = int(252*0.5)  
+    def Hurst(self, ts):  
+        # Create a range of lag values  
+        lags=np.arange(2,20)  
+        # Calculate variance array of the lagged differences  
+        tau = [np.sqrt(np.std(np.subtract(ts[lag:], ts[:-lag]))) for lag in lags]
+
+        # Use a linear fit to estimate  
+        #poly = np.polyfit(np.log(lags), np.log(tau), 1)[0]
+
+        # 1st degree polynomial approximation for speed  
+        # source: http://stackoverflow.com/questions/28237428/fully-vectorise-numpy-polyfit  
+        n = len(lags)  
+        x = np.log(lags)  
+        y = np.log(tau)  
+        poly = (n*(x*y).sum() - x.sum()*y.sum()) / (n*(x*x).sum() - x.sum()*x.sum())
+
+        # Return the Hurst exponent  
+        return poly*2.0  
+    def compute(self, today, assets, out,  OPEN):  
+        SERIES = np.nan_to_num(OPEN)  
+        hurst_exp_per_asset = map(self.Hurst, [SERIES[:,col_id].flatten() for col_id in np.arange(SERIES.shape[1])])  
+        #print 'Hurst Exp:\n',hurst_exp_per_asset  
+        out[:] = hurst_exp_per_asset
